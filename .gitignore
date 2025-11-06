@@ -1,0 +1,24 @@
+# Virtual environments
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Python packaging
+dist/
+build/
+*.egg-info
+
+# Jupyter
+.ipynb_checkpoints/

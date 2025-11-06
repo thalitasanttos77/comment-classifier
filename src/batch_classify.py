@@ -1,9 +1,10 @@
 import os
 import argparse
-import pickle
 import time
 import numpy as np
-from embedder import build_word_map, embed_text, tokenize
+
+from embedder import embed_text, tokenize
+from model_io import load_resources, predict_proba_array
 
 try:
     from openpyxl import Workbook
@@ -17,15 +18,6 @@ try:
     from heuristics import adjust_probability_with_heuristics
 except Exception:
     adjust_probability_with_heuristics = None
-
-def load_resources(model_dir: str, strip_accents: bool):
-    with open(os.path.join(model_dir, "model.pkl"), "rb") as f:
-        bundle = pickle.load(f)
-    words = np.load(os.path.join(model_dir, "words.npy"), allow_pickle=True).tolist()
-    word_vectors = np.load(os.path.join(model_dir, "word_vectors.npy"))
-    word_map = build_word_map(words, word_vectors, lowercase=True, strip_accents=strip_accents)
-    threshold = float(bundle.get("decision_threshold", 0.5))
-    return bundle["model"], bundle["scaler"], word_map, threshold
 
 def autosize_columns(ws):
     for col_idx, col in enumerate(ws.columns, start=1):
@@ -59,7 +51,7 @@ def main():
     parser.add_argument("--use_heuristics", action="store_true", help="Aplicar regras simples (negação/léxico)")
     args = parser.parse_args()
 
-    model, scaler, word_map, saved_th = load_resources(args.model_dir, args.strip_accents)
+    model, scaler, word_map, saved_th, model_type = load_resources(args.model_dir, args.strip_accents)
     decision_th = float(args.threshold) if args.threshold is not None else saved_th
 
     with open(args.input_txt, "r", encoding="utf-8") as f:
@@ -80,35 +72,31 @@ def main():
         c.fill = header_fill
         c.alignment = center
 
-    has_proba = hasattr(model, "predict_proba")
+    # Embedding em lote
+    X = []
+    toks_list = []
     for text in texts:
-        x = embed_text(text, word_map, lowercase=True, strip_accents=args.strip_accents).reshape(1, -1)
-        x_s = scaler.transform(x)
+        toks = tokenize(text, lowercase=True, strip_accents=args.strip_accents)
+        toks_list.append(toks)
+        X.append(embed_text(text, word_map, lowercase=True, strip_accents=args.strip_accents))
+    X = np.stack(X, axis=0)
+    X_s = scaler.transform(X)
 
-        if has_proba:
-            prob_pos = float(model.predict_proba(x_s)[0, 1])
-            if args.use_heuristics and adjust_probability_with_heuristics is not None:
-                toks = tokenize(text, lowercase=True, strip_accents=args.strip_accents)
-                prob_pos = adjust_probability_with_heuristics(prob_pos, toks)
-            pred = 1 if prob_pos >= decision_th else 0
-            label = "positivo" if pred == 1 else "negativo"
-            conf = prob_pos if pred == 1 else (1.0 - prob_pos)
-            prob_cell_value = conf
-        else:
-            pred = int(model.predict(x_s)[0])
-            label = "positivo" if pred == 1 else "negativo"
-            prob_cell_value = None
+    proba = predict_proba_array(model, X_s, model_type).astype(float)
+    if args.use_heuristics and adjust_probability_with_heuristics is not None:
+        proba = np.array([adjust_probability_with_heuristics(float(p), toks) for p, toks in zip(proba, toks_list)], dtype=float)
+    preds = (proba >= decision_th).astype(int)
+
+    for text, pred, p in zip(texts, preds, proba):
+        label = "positivo" if pred == 1 else "negativo"
+        conf = p if pred == 1 else (1.0 - p)
 
         r = ws.max_row + 1
         ws.cell(row=r, column=1, value=text)
         ws.cell(row=r, column=2, value=label)
-        c3 = ws.cell(row=r, column=3, value=prob_cell_value if prob_cell_value is not None else None)
-        if prob_cell_value is not None:
-            c3.number_format = "0%"
-            c3.alignment = center
-        else:
-            c3.value = "N/D"
-            c3.alignment = center
+        c3 = ws.cell(row=r, column=3, value=float(conf))
+        c3.number_format = "0%"
+        c3.alignment = center
 
     autosize_columns(ws)
 

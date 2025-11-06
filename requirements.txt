@@ -1,2 +1,8 @@
-numpy
-scikit-learn
+numpy>=1.26
+scipy>=1.10
+scikit-learn>=1.3
+openpyxl
+tensorflow-cpu==2.17.1
+streamlit>=1.32
+pandas>=2.0
+openpyxl>=3.1
