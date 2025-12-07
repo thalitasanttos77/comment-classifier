@@ -6,7 +6,6 @@ import numpy as np
 _WORD_RE = re.compile(r"\b\w+\b", flags=re.UNICODE)
 
 def remove_accents(text: str) -> str:
-    # Usa só biblioteca padrão
     nfkd = unicodedata.normalize("NFD", text)
     return "".join(c for c in nfkd if unicodedata.category(c) != "Mn")
 
@@ -29,7 +28,6 @@ def embed_text(text: str, word_map: Dict[str, np.ndarray], lowercase: bool = Tru
     tokens = tokenize(text, lowercase=lowercase, strip_accents=strip_accents)
     vecs = [word_map[t] for t in tokens if t in word_map]
     if not vecs:
-        # Sem palavras conhecidas → vetor zero (100D)
         dim = next(iter(word_map.values())).shape[0]
         return np.zeros((dim,), dtype=np.float32)
     return np.mean(np.stack(vecs, axis=0), axis=0).astype(np.float32)

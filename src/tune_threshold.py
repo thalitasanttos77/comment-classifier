@@ -2,13 +2,12 @@ import argparse, csv, json, os
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
-# Imports flexíveis (funciona rodando da raiz com -m src.tune_threshold ou de dentro de src/)
 try:
     from embedder import embed_text, tokenize
     from model_io import load_resources, predict_proba_array
 except Exception:
-    from src.embedder import embed_text, tokenize  # type: ignore
-    from src.model_io import load_resources, predict_proba_array  # type: ignore
+    from src.embedder import embed_text, tokenize  
+    from src.model_io import load_resources, predict_proba_array  
 
 # Heurística opcional
 try:
@@ -47,7 +46,6 @@ def main():
     model, scaler, word_map, saved_th, model_type = load_resources(args.model_dir, args.strip_accents)
     texts, y_true = read_labeled_csv(args.input_csv)
 
-    # Embeddings
     X, toks_list = [], []
     for t in texts:
         toks = tokenize(t, lowercase=True, strip_accents=args.strip_accents)

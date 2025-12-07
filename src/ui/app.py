@@ -7,10 +7,8 @@ import pandas as pd
 import streamlit as st
 import sys
 
-# fix-path: garante que `src/` (pai de ui) esteja no sys.path para imports do tipo `src.xxx`
-
-HERE = os.path.abspath(os.path.dirname(__file__))     # .../src/ui
-SRC_DIR = os.path.abspath(os.path.join(HERE, ".."))   # .../src
+HERE = os.path.abspath(os.path.dirname(__file__))     
+SRC_DIR = os.path.abspath(os.path.join(HERE, ".."))   
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
@@ -18,8 +16,8 @@ try:
     from embedder import embed_text, tokenize
     from model_io import load_resources, predict_proba_array
 except Exception:
-    from src.embedder import embed_text, tokenize  # type: ignore
-    from src.model_io import load_resources, predict_proba_array  # type: ignore
+    from src.embedder import embed_text, tokenize  
+    from src.model_io import load_resources, predict_proba_array  
 
 # Heurísticas (opcional)
 try:
@@ -55,24 +53,18 @@ def compute_coverage(tokens, vocab):
     return known / total
 
 def classify_text(text: str, bundle, threshold: float, use_heuristics: bool, min_coverage: float | None):
-    # Tokenize
     toks = tokenize(text, lowercase=True, strip_accents=bundle["strip_accents"])
     cov = compute_coverage(toks, bundle["vocab"])
-    # Vectorize
     x = embed_text(text, bundle["word_map"], lowercase=True, strip_accents=bundle["strip_accents"]).reshape(1, -1)
     x_s = bundle["scaler"].transform(x)
-    # Proba
     p_pos = float(predict_proba_array(bundle["model"], x_s, bundle["model_type"]).reshape(-1)[0])
     p_adj = p_pos
-    # Heurísticas
     if use_heuristics and adjust_probability_with_heuristics is not None:
         p_adj = float(adjust_probability_with_heuristics(p_adj, toks))
-    # Cobertura mínima
     forced_negative = False
     if min_coverage is not None and cov < float(min_coverage):
         p_adj = 0.0
         forced_negative = True
-    # Decisão
     pred = 1 if p_adj >= threshold else 0
     return {
         "prob_pos_raw": p_pos,
@@ -84,14 +76,13 @@ def classify_text(text: str, bundle, threshold: float, use_heuristics: bool, min
     }
 
 def list_model_dirs(base_dir="."):
-    # Procura pastas comuns de modelo no projeto
     candidates = []
     names = ["models", "models_prec", "models_prec85"]
     for name in names:
         p = os.path.abspath(os.path.join(base_dir, name))
         if os.path.isdir(p):
             candidates.append(p)
-    # Também inclui diretórios irmãos da pasta atual contendo model.pkl
+
     here = os.path.abspath(os.curdir)
     parent = os.path.dirname(here)
     try:
@@ -102,7 +93,6 @@ def list_model_dirs(base_dir="."):
                     candidates.append(full)
     except Exception:
         pass
-    # De-dup e ordena
     return sorted(set(candidates))
 
 
@@ -114,12 +104,8 @@ st.set_page_config(page_title="Classificador de Comentários", page_icon="💬",
 
 st.title("💬Classificador de Comentários💬")
 
-# Sidebar: escolha de modelo e carregamento (substituir a seção antiga)
 with st.sidebar:
     st.header("Configurações")
-
-    # Busca diretórios de modelos a partir da raiz do projeto (a partir de src/ui/app.py)
-    # HERE já foi definido no topo do arquivo como: os.path.abspath(os.path.dirname(__file__))
     project_root = os.path.abspath(os.path.join(HERE, "..", ".."))
     model_options = list_model_dirs(base_dir=project_root)
 
@@ -138,11 +124,8 @@ with st.sidebar:
         index=options_for_select.index(default_dir) if (default_dir and default_dir in options_for_select) else 0
     )
 
-    # strip_accents
     strip_accents = st.checkbox("Remover acentos (strip_accents)", value=True,
                                 help="Deve refletir como o vocabulário foi construído.")
-
-    # Se não houver modelos encontrados, mostra aviso e para a execução (evita erro posterior)
     if not model_options or selected_model_dir == placeholder:
         st.warning(
             "Nenhum diretório de modelo encontrado automaticamente. "
@@ -150,10 +133,7 @@ with st.sidebar:
             "com `model.pkl`, ou selecione manualmente o caminho."
         )
         st.caption(f"Procurando em: {project_root}")
-        # Não tentar carregar bundle inválido — interrompe o restante do script
         st.stop()
-
-    # Carrega bundle (apenas se houver um diretório válido selecionado)
     with st.spinner("Carregando modelo..."):
         try:
             bundle = load_model_bundle(selected_model_dir, strip_accents)
@@ -239,19 +219,15 @@ with tab2:
             st.error("CSV precisa ter a coluna 'texto'.")
         else:
             st.write(f"Linhas lidas: {len(df_in)}")
-            # Classificação
             probs_raw = []
             probs_adj = []
             preds = []
             covs = []
             forced_list = []
-
-            # Processa em blocos para CSVs grandes
             B = 512
             texts = df_in["texto"].fillna("").astype(str).tolist()
             for i in range(0, len(texts), B):
                 batch = texts[i:i+B]
-                # Embeddings
                 toks_batch = [tokenize(t, lowercase=True, strip_accents=bundle["strip_accents"]) for t in batch]
                 cov_batch = [compute_coverage(toks, bundle["vocab"]) for toks in toks_batch]
                 X = np.stack([embed_text(t, bundle["word_map"], lowercase=True, strip_accents=bundle["strip_accents"]) for t in batch], axis=0)
@@ -285,8 +261,6 @@ with tab2:
             df_out["forced_negative"] = forced_list
 
             st.dataframe(df_out.head(20), use_container_width=True)
-
-            # Se tiver label, calcula métricas
             if "label" in df_out.columns:
                 y_true = df_out["label"].astype(int).values
                 y_pred = df_out["pred"].astype(int).values
@@ -308,7 +282,6 @@ with tab2:
                     "confusion_matrix": [[TN, FP],[FN, TP]],
                 })
 
-            # Download CSV
             csv_bytes = df_out.to_csv(index=False).encode("utf-8")
             st.download_button(
                 label="Baixar resultados (CSV)",
@@ -317,7 +290,6 @@ with tab2:
                 mime="text/csv"
             )
 
-            # Download Excel
             out_buf = io.BytesIO()
             with pd.ExcelWriter(out_buf, engine="openpyxl") as writer:
                 df_out.to_excel(writer, sheet_name="Resultados", index=False)

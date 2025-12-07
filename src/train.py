@@ -95,7 +95,6 @@ def main():
     X = X.astype(np.float32)
     y = y.astype(int)
 
-    # Split 70/15/15
     X_tmp, X_te, y_tmp, y_te = train_test_split(X, y, test_size=0.15, random_state=args.seed, stratify=y)
     X_tr, X_va, y_tr, y_va = train_test_split(X_tmp, y_tmp, test_size=0.17647, random_state=args.seed, stratify=y_tmp)
 
@@ -104,23 +103,19 @@ def main():
     X_va_s = scaler.transform(X_va)
     X_te_s = scaler.transform(X_te)
 
-    # Pesos de classe (balanceados) + viés negativo para punir FPs
     classes = np.unique(y_tr)
     cw_values = compute_class_weight(class_weight="balanced", classes=classes, y=y_tr)
     class_weight = {int(c): float(w) for c, w in zip(classes, cw_values)}
     class_weight[0] = class_weight.get(0, 1.0) * float(args.neg_bias)
 
-    # Treina e escolhe limiar por métrica
     model = fit_mlp(X_tr_s, y_tr, X_va_s, y_va, class_weight=class_weight, seed=args.seed)
     proba_va = model.predict(X_va_s, verbose=0).reshape(-1)
     best_th, best_row = pick_threshold(proba_va, y_va, metric=args.metric, recall_min=args.recall_min)
 
-    # Re-treina em treino+val (usa mesmo class_weight) e avalia no teste
     X_trva_s = np.vstack([X_tr_s, X_va_s]); y_trva = np.concatenate([y_tr, y_va])
-    model_f = fit_mlp(X_trva_s, y_trva, X_va_s, y_va, class_weight=class_weight, seed=args.seed)  # usa val para early stopping
+    model_f = fit_mlp(X_trva_s, y_trva, X_va_s, y_va, class_weight=class_weight, seed=args.seed)  
     test_metrics = evaluate(model_f, X_te_s, y_te, threshold=best_th)
 
-    # Salva Keras + bundle
     keras_path = os.path.join(args.out_dir, "tf_model.keras")
     model_f.save(keras_path)
     bundle = {
@@ -133,7 +128,6 @@ def main():
     with open(os.path.join(args.out_dir, "model.pkl"), "wb") as f:
         pickle.dump(bundle, f)
 
-    # Vocabulário
     np.save(os.path.join(args.out_dir, "words.npy"), np.array(words, dtype=object))
     np.save(os.path.join(args.out_dir, "word_vectors.npy"), word_vecs.astype(np.float32))
 

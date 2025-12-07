@@ -24,7 +24,6 @@ def main():
 
     print("Chaves em model.pkl:", list(bundle.keys()))
 
-    # Campos comuns salvos pelo seu train.py
     decision_threshold = bundle.get("decision_threshold", 0.5)
     model_type = bundle.get("model_type", type(bundle.get("model")).__name__)
     C = bundle.get("C", None)
@@ -37,14 +36,12 @@ def main():
 
     model = bundle.get("model")
     scaler = bundle.get("scaler")
-    pca = bundle.get("pca", None)  # pode não existir
+    pca = bundle.get("pca", None)  
 
-    # Info do modelo
     print("\n[Modelo]")
     print("classe:", type(model).__name__)
     print("tem predict_proba?:", hasattr(model, "predict_proba"))
 
-    # Se for calibrado, mostre o base_estimator
     try:
         from sklearn.calibration import CalibratedClassifierCV
         if isinstance(model, CalibratedClassifierCV):
@@ -57,7 +54,6 @@ def main():
                     if k in params:
                         print(f"base_estimator.{k}:", params[k])
         else:
-            # LogisticRegression direto
             try:
                 from sklearn.linear_model import LogisticRegression
                 if isinstance(model, LogisticRegression):
@@ -69,7 +65,6 @@ def main():
     except Exception:
         pass
 
-    # Info do scaler
     print("\n[Scaler]")
     print("classe:", type(scaler).__name__ if scaler is not None else None)
     try:
@@ -79,7 +74,6 @@ def main():
     except Exception:
         pass
 
-    # Info do PCA (se existir)
     if pca is not None:
         print("\n[PCA]")
         print("classe:", type(pca).__name__)
@@ -93,7 +87,6 @@ def main():
     else:
         print("\n[PCA] não presente (pipeline sem PCA).")
 
-    # Vocabulário
     words_path = os.path.join(args.model_dir, "words.npy")
     if os.path.exists(words_path):
         words = np.load(words_path, allow_pickle=True)

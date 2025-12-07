@@ -7,7 +7,6 @@ def load_words(words_path: str) -> List[str]:
         return [line.strip() for line in f if line.strip()]
 
 def load_matrix(dat_path: str, dtype=np.float32) -> np.ndarray:
-    # Arquivos .dat com números separados por espaço
     return np.loadtxt(dat_path, dtype=dtype)
 
 def load_labels(labels_path: str, dtype=int) -> np.ndarray:

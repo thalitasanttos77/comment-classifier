@@ -1,6 +1,5 @@
 from typing import List
 
-# Pequeno léxico para reforçar decisões em frases curtas e tratar negação simples.
 POS_WORDS = {
      "bom", "boa", "excelente", "otimo", "ótimo", "gostei", "adorei",
     "maravilhoso", "maravilhosa", "perfeito", "recomendo", "lindo", "linda",
@@ -31,9 +30,9 @@ def adjust_probability_with_heuristics(prob_pos: float, tokens: List[str]) -> fl
 
     p = prob_pos
     if has_negator and has_pos and not has_neg:
-        p = min(p, 0.25)    # "não gostei" → reduzir positivo
+        p = min(p, 0.25)   
     if has_neg and not has_pos:
-        p = min(p, 0.35)    # palavras negativas fortes
+        p = min(p, 0.35)    
     if has_pos and not has_neg and not has_negator:
-        p = max(p, 0.65)    # reforça positivo quando só há positivo
+        p = max(p, 0.65)   
     return max(0.0, min(1.0, p))

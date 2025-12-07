@@ -44,7 +44,6 @@ def load_resources(model_dir: str, strip_accents: bool):
             raise SystemExit(f"Modelo Keras não encontrado: {abs_path}")
         model = tf.keras.models.load_model(abs_path)
     else:
-        # Compatível com modelos antigos (scikit-learn) que salvam 'model' diretamente
         model = bundle.get("model")
         model_type = model_type or type(model).__name__
 
@@ -62,7 +61,6 @@ def predict_proba_array(model, X_s: np.ndarray, model_type: str) -> np.ndarray:
         return model.predict_proba(X_s)[:, 1].astype(float)
     if hasattr(model, "decision_function"):
         z = model.decision_function(X_s).astype(float)
-        return 1.0 / (1.0 + np.exp(-z))  # sigmoid
-    # Último caso: usa predict (0/1) como probabilidade degenerada
+        return 1.0 / (1.0 + np.exp(-z))  
     pred = np.asarray(model.predict(X_s)).reshape(-1)
     return pred.astype(float)

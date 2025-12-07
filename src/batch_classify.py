@@ -72,7 +72,6 @@ def main():
         c.fill = header_fill
         c.alignment = center
 
-    # Embedding em lote
     X = []
     toks_list = []
     for text in texts:
